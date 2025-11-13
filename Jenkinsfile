@@ -77,9 +77,9 @@ pipeline {
                         sh """
                             ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_HOST '
                                 cd $DEPLOY_PATH &&
-                                docker compose down || true &&
-                                docker compose pull &&
-                                docker compose up -d --force-recreate
+                                docker-compose down || true &&
+                                docker-compose pull &&
+                                docker-compose up -d --force-recreate
                             '
                         """
                     }
