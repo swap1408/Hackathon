@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        jdk 'JDK17'     // Must match Global Tool Configuration EXACT name
-        maven 'Maven3'  // Your configured Maven installation
+        jdk 'JDK17'
+        maven 'Maven3'
     }
 
     environment {
@@ -42,19 +42,23 @@ pipeline {
         stage('Build & Push Docker Images') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
-                        usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'docker-hub-creds',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )
+                    ]) {
                         sh """
-                          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                          
-                          docker build -t $REGISTRY/$BACKEND_IMAGE:$TAG ./backend
-                          docker build -t $REGISTRY/$FRONTEND_IMAGE:$TAG ./frontend
-                          docker build -t $REGISTRY/$PYTHON_IMAGE:$TAG ./python
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-                          docker push $REGISTRY/$BACKEND_IMAGE:$TAG
-                          docker push $REGISTRY/$FRONTEND_IMAGE:$TAG
-                          docker push $REGISTRY/$PYTHON_IMAGE:$TAG
+                            docker build -t $REGISTRY/$BACKEND_IMAGE:$TAG ./backend
+                            docker build -t $REGISTRY/$FRONTEND_IMAGE:$TAG ./frontend
+                            docker build -t $REGISTRY/$PYTHON_IMAGE:$TAG ./python
+
+                            docker push $REGISTRY/$BACKEND_IMAGE:$TAG
+                            docker push $REGISTRY/$FRONTEND_IMAGE:$TAG
+                            docker push $REGISTRY/$PYTHON_IMAGE:$TAG
                         """
                     }
                 }
@@ -64,20 +68,21 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 script {
-                    withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ansible-ssh-key',
-                        keyFileVariable: 'SSH_KEY'
-                    )]) {
-
+                    withCredentials([
+                        sshUserPrivateKey(
+                            credentialsId: 'ansible-ssh-key',
+                            keyFileVariable: 'SSH_KEY'
+                        )
+                    ]) {
                         sh """
-                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_HOST '
-                            cd $DEPLOY_PATH &&
-                            docker compose down ||
-                            true &&
-                            docker compose pull &&
-                            docker compose up -d --force-recreate
-                        '
+                            ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_HOST '
+                                cd $DEPLOY_PATH &&
+                                docker compose down || true &&
+                                docker compose pull &&
+                                docker compose up -d --force-recreate
+                            '
                         """
+                    }
                 }
             }
         }
