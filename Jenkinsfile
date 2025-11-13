@@ -6,14 +6,32 @@ pipeline {
         BACKEND_IMAGE = "hack-backend"
         FRONTEND_IMAGE = "hack-frontend"
         PYTHON_IMAGE = "hack-python"
-
-        SSH_KEY = credentials('ansible-ssh-key')
-        DOCKER_CREDS = credentials('docker-hub-creds')
-        EC2_USER = "ubuntu"
-        EC2_HOST = "15.207.120.201"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
+
+        stage('Prepare Build Tools (Java17 + Maven)') {
+            steps {
+                sh '''
+                  echo "[INFO] Checking Java version..."
+                  if ! java -version 2>&1 | grep "17" >/dev/null; then
+                      echo "[INFO] Installing OpenJDK 17..."
+                      sudo apt update
+                      sudo apt install -y openjdk-17-jdk
+                  fi
+                  java -version
+
+                  echo "[INFO] Checking Maven..."
+                  if ! command -v mvn >/dev/null 2>&1; then
+                      echo "[INFO] Installing Maven..."
+                      sudo apt update
+                      sudo apt install -y maven
+                  fi
+                  mvn -version
+                '''
+            }
+        }
 
         stage('Checkout Code') {
             steps {
@@ -21,9 +39,9 @@ pipeline {
             }
         }
 
-        stage('Build Backend JAR (Maven)') {
+        stage('Build Backend JAR') {
             steps {
-                dir("backend") {
+                dir('backend') {
                     sh 'mvn clean package -DskipTests'
                 }
             }
@@ -31,36 +49,33 @@ pipeline {
 
         stage('Build & Push Docker Images') {
             steps {
-                script {
-                    sh """
-                        echo "Logging into Docker Hub"
-                        echo "$DOCKER_CREDS_PSW" | docker login -u "$DOCKER_CREDS_USR" --password-stdin
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh '''
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
 
-                        docker build -t $REGISTRY/$BACKEND_IMAGE:\$BUILD_NUMBER backend/
-                        docker build -t $REGISTRY/$FRONTEND_IMAGE:\$BUILD_NUMBER frontend/
-                        docker build -t $REGISTRY/$PYTHON_IMAGE:\$BUILD_NUMBER python/
+                        docker build -t ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG} backend
+                        docker build -t ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG} frontend
+                        docker build -t ${REGISTRY}/${PYTHON_IMAGE}:${IMAGE_TAG} python
 
-                        docker push $REGISTRY/$BACKEND_IMAGE:\$BUILD_NUMBER
-                        docker push $REGISTRY/$FRONTEND_IMAGE:\$BUILD_NUMBER
-                        docker push $REGISTRY/$PYTHON_IMAGE:\$BUILD_NUMBER
-                    """
+                        docker push ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${REGISTRY}/${PYTHON_IMAGE}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                script {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST '
+                sshagent(['ansible-ssh-key']) {
+                    sh '''
+                      ssh -o StrictHostKeyChecking=no ubuntu@15.207.120.201 '
                         cd /home/ubuntu/hackathon &&
-                        sed -i "s|hack-backend:.*|hack-backend:\$BUILD_NUMBER|g" docker-compose.yml &&
-                        sed -i "s|hack-frontend:.*|hack-frontend:\$BUILD_NUMBER|g" docker-compose.yml &&
-                        sed -i "s|hack-python:.*|hack-python:\$BUILD_NUMBER|g" docker-compose.yml &&
                         docker-compose pull &&
+                        docker-compose down &&
                         docker-compose up -d
-                    '
-                    """
+                      '
+                    '''
                 }
             }
         }
@@ -68,7 +83,7 @@ pipeline {
 
     post {
         success {
-            echo "✔ Deployment Successful!"
+            echo "🎉 Deployment Successful!"
         }
         failure {
             echo "❌ Build or Deploy Failed!"
