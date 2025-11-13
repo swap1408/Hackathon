@@ -11,28 +11,6 @@ pipeline {
 
     stages {
 
-        stage('Prepare Build Tools (Java17 + Maven)') {
-            steps {
-                sh '''
-                  echo "[INFO] Checking Java version..."
-                  if ! java -version 2>&1 | grep "17" >/dev/null; then
-                      echo "[INFO] Installing OpenJDK 17..."
-                      sudo apt update
-                      sudo apt install -y openjdk-17-jdk
-                  fi
-                  java -version
-
-                  echo "[INFO] Checking Maven..."
-                  if ! command -v mvn >/dev/null 2>&1; then
-                      echo "[INFO] Installing Maven..."
-                      sudo apt update
-                      sudo apt install -y maven
-                  fi
-                  mvn -version
-                '''
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 checkout scm
@@ -70,7 +48,7 @@ pipeline {
                 sshagent(['ansible-ssh-key']) {
                     sh '''
                       ssh -o StrictHostKeyChecking=no ubuntu@15.207.120.201 '
-                        cd /home/ubuntu/hackathon &&
+                        cd hackathon &&
                         docker-compose pull &&
                         docker-compose down &&
                         docker-compose up -d
