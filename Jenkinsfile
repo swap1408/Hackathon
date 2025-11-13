@@ -2,81 +2,63 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = "swapnilneo"
+        REGISTRY = "docker.io/swapnilneo"
+        BACKEND_IMAGE = "hack-backend"
         FRONTEND_IMAGE = "hack-frontend"
-        BACKEND_IMAGE  = "hack-backend"
-        PYTHON_IMAGE   = "hack-python"
-        TAG = "${env.BUILD_NUMBER}"
+        PYTHON_IMAGE = "hack-python"
+
+        SSH_KEY = credentials('ansible-ssh-key')
+        DOCKER_CREDS = credentials('docker-hub-creds')
+        EC2_USER = "ubuntu"
+        EC2_HOST = "15.207.120.201"
     }
 
     stages {
 
         stage('Checkout Code') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
-        stage('Build Backend JAR') {
+        stage('Build Backend JAR (Maven)') {
             steps {
-                dir('backend') {
-                    sh './gradlew clean bootJar'
+                dir("backend") {
+                    sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Build & Push Images') {
+        stage('Build & Push Docker Images') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-creds') {
+                    sh """
+                        echo "Logging into Docker Hub"
+                        echo "$DOCKER_CREDS_PSW" | docker login -u "$DOCKER_CREDS_USR" --password-stdin
 
-                        dir('frontend') {
-                            sh "docker build -t ${REGISTRY}/${FRONTEND_IMAGE}:${TAG} ."
-                            sh "docker push ${REGISTRY}/${FRONTEND_IMAGE}:${TAG}"
-                        }
+                        docker build -t $REGISTRY/$BACKEND_IMAGE:\$BUILD_NUMBER backend/
+                        docker build -t $REGISTRY/$FRONTEND_IMAGE:\$BUILD_NUMBER frontend/
+                        docker build -t $REGISTRY/$PYTHON_IMAGE:\$BUILD_NUMBER python/
 
-                        dir('backend') {
-                            sh "docker build -t ${REGISTRY}/${BACKEND_IMAGE}:${TAG} ."
-                            sh "docker push ${REGISTRY}/${BACKEND_IMAGE}:${TAG}"
-                        }
-
-                        dir('python') {
-                            sh "docker build -t ${REGISTRY}/${PYTHON_IMAGE}:${TAG} ."
-                            sh "docker push ${REGISTRY}/${PYTHON_IMAGE}:${TAG}"
-                        }
-                    }
+                        docker push $REGISTRY/$BACKEND_IMAGE:\$BUILD_NUMBER
+                        docker push $REGISTRY/$FRONTEND_IMAGE:\$BUILD_NUMBER
+                        docker push $REGISTRY/$PYTHON_IMAGE:\$BUILD_NUMBER
+                    """
                 }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                script {
                     sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@15.207.120.201 '
-                    
-                        cd /home/ubuntu/hackathon
-
-                        echo "📌 Saving current compose file for rollback"
-                        cp docker-compose.yml docker-compose.yml.bak
-
-                        echo "🔄 Updating images to new versions"
-
-                        sudo sed -i "s|image: .*hack-frontend.*|image: ${REGISTRY}/${FRONTEND_IMAGE}:${TAG}|" docker-compose.yml
-                        sudo sed -i "s|image: .*hack-backend.*|image: ${REGISTRY}/${BACKEND_IMAGE}:${TAG}|" docker-compose.yml
-                        sudo sed -i "s|image: .*hack-python.*|image: ${REGISTRY}/${PYTHON_IMAGE}:${TAG}|" docker-compose.yml
-
-                        echo "⬇ Pulling new images"
-                        sudo docker compose pull || exit 1
-
-                        echo "🚀 Restarting services"
-                        sudo docker compose up -d || exit 1
-
-                        echo "⏳ Waiting 8 seconds before health check"
-                        sleep 8
-
-                        echo "🔍 Testing backend health"
-                        curl -f http://localhost:8080/api/v1/seed || (echo "❌ Backend failed. Rolling back..." && cp docker-compose.yml.bak docker-compose.yml && sudo docker compose up -d && exit 1)
-
-                        echo "✅ Deployment successful!"
+                    ssh -o StrictHostKeyChecking=no -i $SSH_KEY $EC2_USER@$EC2_HOST '
+                        cd /home/ubuntu/hackathon &&
+                        sed -i "s|hack-backend:.*|hack-backend:\$BUILD_NUMBER|g" docker-compose.yml &&
+                        sed -i "s|hack-frontend:.*|hack-frontend:\$BUILD_NUMBER|g" docker-compose.yml &&
+                        sed -i "s|hack-python:.*|hack-python:\$BUILD_NUMBER|g" docker-compose.yml &&
+                        docker-compose pull &&
+                        docker-compose up -d
                     '
                     """
                 }
@@ -85,7 +67,11 @@ pipeline {
     }
 
     post {
-        success { echo "🎉 Build & Deploy completed successfully!" }
-        failure { echo "❌ Build or Deploy failed!" }
+        success {
+            echo "✔ Deployment Successful!"
+        }
+        failure {
+            echo "❌ Build or Deploy Failed!"
+        }
     }
 }
