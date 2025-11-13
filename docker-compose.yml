@@ -9,8 +9,8 @@ services:
       - "8081:80"
     environment:
       BACKEND_URL: http://backend:8080
-      VITE_API_URL: http://15.207.120.201:8080
-      CITYASSIST_API_URL: http://15.207.120.201:8000   # <-- REQUIRED for Python ML API
+      VITE_API_URL: /api                   # <--- NO PUBLIC IP
+      CITYASSIST_API_URL: http://python:8000
     depends_on:
       - backend
       - python
