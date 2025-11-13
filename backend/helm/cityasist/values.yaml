@@ -1,0 +1,16 @@
+image:
+  repository: cityasist
+  tag: "0.0.1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/cityasist
+  DB_USERNAME: postgres
+  DB_PASSWORD: postgres
+  JWT_SECRET: changeme
+  APP_ADMIN_EMAIL: admin@cityasist.local
+  APP_ADMIN_PASSWORD: change-me

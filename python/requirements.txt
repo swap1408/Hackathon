@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic
+redis
+python-dotenv
+prometheus-client
+python-multipart

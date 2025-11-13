@@ -1,0 +1,49 @@
+{
+  "alerts": [
+    {"id": "a1", "type": "aqi", "title": "AQI High in Downtown", "message": "Wear a mask if sensitive.", "level": "high", "action": {"label": "Health Tips", "to": "/notifications"}},
+    {"id": "a2", "type": "traffic", "title": "Accident near Ring Road", "message": "10-15 min delay expected.", "level": "medium", "action": {"label": "View Route", "to": "/map"}},
+    {"id": "a3", "type": "utility", "title": "Water outage in Zone B", "message": "ETA 2h for restore.", "level": "high", "action": {"label": "Track", "to": "/services"}}
+  ],
+  "routes": [
+    {"id": "r1", "from": "Current Location", "to": "City Center", "options": [
+      {"mode": "car", "eta_min": 25, "advice": "Take 3rd Ave to avoid closure."},
+      {"mode": "bus", "eta_min": 30, "advice": "Bus 12 every 8 min."},
+      {"mode": "bike", "eta_min": 22, "advice": "Low congestion on bike lane."}
+    ]}
+  ],
+  "outages": [
+    {"id": "o1", "utility": "Water", "zone": "B", "status": "outage", "eta": "2025-11-06T09:00:00Z"},
+    {"id": "o2", "utility": "Power", "zone": "A", "status": "stable", "eta": null}
+  ],
+  "localServices": [
+    {"id": "h1", "type": "Hospital", "name": "City Hospital", "phone": "+1800123456", "lat": 12.9716, "lng": 77.5946},
+    {"id": "p1", "type": "Pharmacy", "name": "HealthPlus Pharmacy", "phone": "+1800456789", "lat": 12.973, "lng": 77.6},
+    {"id": "s1", "type": "Shelter", "name": "Community Shelter", "phone": "+1800789012", "lat": 12.97, "lng": 77.59}
+  ],
+  "notifications": [
+    {"id": "n1", "title": "Welcome to CityAssist", "body": "Enable notifications to stay updated.", "read": false},
+    {"id": "n2", "title": "Service Update", "body": "Water outage ETA changed to 1h 30m.", "read": false}
+  ],
+  "dashboard": {
+    "stats": {
+      "money": 53000,
+      "users": 2300,
+      "clients": 3462,
+      "sales": 103430,
+      "changes": {"money": "+55%", "users": "+3%", "clients": "-2%", "sales": "+5%"}
+    },
+    "charts": {
+      "websiteViews": [35, 5, 12, 8, 40, 22, 36],
+      "dailySales":   [10, 18, 25, 27, 40, 55, 60, 42, 48, 65],
+      "completedTasks":[5, 20, 14, 28, 22, 35, 30, 26, 32, 45]
+    },
+    "projects": [
+      {"name": "Material XD Version", "progress": 60},
+      {"name": "Add Progress Track", "progress": 10}
+    ],
+    "orders": [
+      {"title": "$2400, Design changes", "time": "22 DEC 7:20 PM"},
+      {"title": "New order #1832412", "time": "21 DEC 11 PM"}
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+location,speed,timestamp,congestion_level
+Hyderabad,25,2025-11-07 10:56:51.535028,low
+Mumbai,18,2025-11-07 10:56:51.535028,high
+Chennai,40,2025-11-07 10:56:51.535028,low

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cityasist
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cityasist
+  template:
+    metadata:
+      labels:
+        app: cityasist
+    spec:
+      containers:
+        - name: cityasist
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_URL
+              value: "{{ .Values.env.DB_URL }}"
+            - name: DB_USERNAME
+              value: "{{ .Values.env.DB_USERNAME }}"
+            - name: DB_PASSWORD
+              value: "{{ .Values.env.DB_PASSWORD }}"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cityasist-secrets
+                  key: jwtSecret
+            - name: APP_ADMIN_EMAIL
+              value: "{{ .Values.env.APP_ADMIN_EMAIL }}"
+            - name: APP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cityasist-secrets
+                  key: adminPassword

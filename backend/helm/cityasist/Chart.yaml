@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cityasist
+version: 0.1.0
+description: CityAsist Spring Boot backend
+appVersion: "0.0.1"
