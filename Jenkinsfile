@@ -1,12 +1,19 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'JDK17'     // Must match Global Tool Configuration EXACT name
+        maven 'Maven3'  // Your configured Maven installation
+    }
+
     environment {
-        REGISTRY = "docker.io/swapnilneo"
-        BACKEND_IMAGE = "hack-backend"
-        FRONTEND_IMAGE = "hack-frontend"
-        PYTHON_IMAGE = "hack-python"
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        REGISTRY       = 'docker.io/swapnilneo'
+        BACKEND_IMAGE  = 'hack-backend'
+        FRONTEND_IMAGE = 'hack-frontend'
+        PYTHON_IMAGE   = 'hack-python'
+        TAG            = "${env.BUILD_NUMBER}"
+        SSH_HOST       = 'ubuntu@15.207.120.201'
+        DEPLOY_PATH    = '/home/ubuntu/hackathon'
     }
 
     stages {
@@ -17,43 +24,60 @@ pipeline {
             }
         }
 
+        stage('Verify Java & Maven') {
+            steps {
+                sh 'java -version'
+                sh 'mvn -version'
+            }
+        }
+
         stage('Build Backend JAR') {
             steps {
                 dir('backend') {
-                    sh 'mvn clean package -DskipTests'
+                    sh "mvn clean package -DskipTests"
                 }
             }
         }
 
         stage('Build & Push Docker Images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    sh '''
-                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds',
+                        usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
 
-                        docker build -t ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG} backend
-                        docker build -t ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG} frontend
-                        docker build -t ${REGISTRY}/${PYTHON_IMAGE}:${IMAGE_TAG} python
+                        sh """
+                          echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                          
+                          docker build -t $REGISTRY/$BACKEND_IMAGE:$TAG ./backend
+                          docker build -t $REGISTRY/$FRONTEND_IMAGE:$TAG ./frontend
+                          docker build -t $REGISTRY/$PYTHON_IMAGE:$TAG ./python
 
-                        docker push ${REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
-                        docker push ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
-                        docker push ${REGISTRY}/${PYTHON_IMAGE}:${IMAGE_TAG}
-                    '''
+                          docker push $REGISTRY/$BACKEND_IMAGE:$TAG
+                          docker push $REGISTRY/$FRONTEND_IMAGE:$TAG
+                          docker push $REGISTRY/$PYTHON_IMAGE:$TAG
+                        """
+                    }
                 }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['ansible-ssh-key']) {
-                    sh '''
-                      ssh -o StrictHostKeyChecking=no ubuntu@15.207.120.201 '
-                        cd hackathon &&
-                        docker-compose pull &&
-                        docker-compose down &&
-                        docker-compose up -d
-                      '
-                    '''
+                script {
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ansible-ssh-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )]) {
+
+                        sh """
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_HOST '
+                            cd $DEPLOY_PATH &&
+                            docker compose down ||
+                            true &&
+                            docker compose pull &&
+                            docker compose up -d --force-recreate
+                        '
+                        """
                 }
             }
         }
@@ -61,10 +85,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Deployment Successful!"
+            echo "✅ Deployment Successful!"
         }
         failure {
-            echo "❌ Build or Deploy Failed!"
+            echo "❌ Build or Deployment Failed!"
         }
     }
 }
