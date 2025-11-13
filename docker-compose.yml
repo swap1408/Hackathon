@@ -4,12 +4,13 @@ services:
   frontend:
     build:
       context: ./frontend
-    image: hack-frontend:latest
+    image: swapnilneo/hack-frontend:latest
     ports:
       - "8081:80"
     environment:
       BACKEND_URL: http://backend:8080
       VITE_API_URL: http://15.207.120.201:8080
+      CITYASSIST_API_URL: http://15.207.120.201:8000   # <-- REQUIRED for Python ML API
     depends_on:
       - backend
       - python
@@ -19,7 +20,7 @@ services:
   backend:
     build:
       context: ./backend
-    image: hack-backend:latest
+    image: swapnilneo/hack-backend:latest
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/hackdb
       DB_USERNAME: postgres
@@ -36,7 +37,7 @@ services:
   python:
     build:
       context: ./python
-    image: hack-python:latest
+    image: swapnilneo/hack-python:latest
     ports:
       - "8000:8000"
     networks:
